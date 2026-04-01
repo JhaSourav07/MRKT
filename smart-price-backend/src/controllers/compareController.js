@@ -1,3 +1,5 @@
+import { scrapeAmazonProduct } from '../services/scraperService.js';
+
 export const processComparison = async (req, res) => {
     try {
         const { query } = req.body;
@@ -5,22 +7,33 @@ export const processComparison = async (req, res) => {
         if (!query) {
             return res.status(400).json({ 
                 success: false, 
-                message: "Please provide a product URL or search term." 
+                message: "Please provide a product URL." 
             });
         }
 
-        // TODO: In the next step, we will call our Playwright scraper service here!
-        console.log(`Received request to compare: ${query}`);
+        console.log(`Received request to process: ${query}`);
 
-        // Mock response for now to ensure our API is wired up correctly
-        res.status(200).json({
-            success: true,
-            message: "API is successfully wired up!",
-            data: {
-                queryReceived: query,
-                status: "Pending scraper integration..."
+        // For this MVP step, we assume the query is an Amazon URL
+        if (query.includes('amzn.in') || query.includes('amazon.in') || query.includes('amazon.com')) {
+            const scrapedData = await scrapeAmazonProduct(query);
+            
+            if (scrapedData.success) {
+                return res.status(200).json({
+                    success: true,
+                    data: scrapedData
+                });
+            } else {
+                return res.status(500).json({
+                    success: false,
+                    message: scrapedData.message
+                });
             }
-        });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: "Currently, only Amazon URLs are supported for testing."
+            });
+        }
 
     } catch (error) {
         console.error("Error in processComparison:", error);
