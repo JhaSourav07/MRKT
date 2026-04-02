@@ -1,38 +1,61 @@
-import { scrapeAmazonProduct, scrapeFlipkartProduct } from '../services/scraperService.js';
+import { 
+    scrapeAmazonProduct, 
+    scrapeFlipkartProduct, 
+    searchFlipkart, 
+    searchAmazon 
+} from '../services/scraperService.js';
+import { extractProductInfo } from '../utils/productExtractor.js';
 
 export const processComparison = async (req, res) => {
     try {
         const { query } = req.body;
+        if (!query) return res.status(400).json({ success: false, message: "Please provide a product URL." });
 
-        if (!query) {
-            return res.status(400).json({ success: false, message: "Please provide a product URL." });
-        }
+        let originalData = null;
+        let comparisonData = null;
 
-        console.log(`Received request to process: ${query}`);
-        let scrapedData = null;
-
-        // 🟢 ROUTING LOGIC: Check which website the URL belongs to
+        // --- PATH A: User pasted an Amazon Link ---
         if (query.includes('amazon.') || query.includes('amzn.in')) {
-            scrapedData = await scrapeAmazonProduct(query);
+            originalData = await scrapeAmazonProduct(query);
             
+            if (originalData.success) {
+                const extractedInfo = extractProductInfo(originalData.title);
+                originalData.extractedInfo = extractedInfo;
+
+                // Auto-search Flipkart
+                const searchResult = await searchFlipkart(extractedInfo.searchQuery);
+                if (searchResult.success) {
+                    comparisonData = await scrapeFlipkartProduct(searchResult.url);
+                }
+            }
         } 
-        // We look for flipkart.com, fkrt.it (shortlinks), or dl.flipkart (deep links)
+        // --- PATH B: User pasted a Flipkart Link ---
         else if (query.includes('flipkart.com') || query.includes('fkrt.it') || query.includes('dl.flipkart.com')) {
-            scrapedData = await scrapeFlipkartProduct(query);
+            originalData = await scrapeFlipkartProduct(query);
             
+            if (originalData.success) {
+                // Extract the query from Flipkart's title
+                const extractedInfo = extractProductInfo(originalData.title);
+                originalData.extractedInfo = extractedInfo;
+
+                // 🟢 NEW: Auto-search Amazon!
+                const searchResult = await searchAmazon(extractedInfo.searchQuery);
+                if (searchResult.success) {
+                    comparisonData = await scrapeAmazonProduct(searchResult.url);
+                }
+            }
         } else {
-            // This is the error you just hit!
-            return res.status(400).json({
-                success: false,
-                message: "Currently, only Amazon and Flipkart URLs are supported."
-            });
+            return res.status(400).json({ success: false, message: "Unsupported URL." });
         }
 
-        if (scrapedData.success) {
-            return res.status(200).json({ success: true, data: scrapedData });
-        } else {
-            return res.status(500).json({ success: false, message: scrapedData.message });
-        }
+        // Return the ultimate price comparison package!
+        return res.status(200).json({ 
+            success: true, 
+            data: {
+                sourceProduct: originalData,
+                competitorProduct: comparisonData
+            }
+        });
 
     } catch (error) {
         console.error("Error in processComparison:", error);
