@@ -1,9 +1,11 @@
 import { 
     scrapeAmazonProduct, 
-    scrapeFlipkartProduct, 
-    searchFlipkart, 
-    searchAmazon 
+    scrapeFlipkartProduct,
 } from '../services/scraperService.js';
+import { 
+    searchAmazon, 
+    searchFlipkart,
+} from '../services/searchService.js';
 import { extractProductInfo } from '../utils/productExtractor.js';
 
 export const processComparison = async (req, res) => {
