@@ -65,3 +65,72 @@ export const scrapeAmazonProduct = async (url) => {
         await browser.close();
     }
 };
+
+export const scrapeFlipkartProduct = async (url) => {
+    const browser = await chromium.launch({ headless: false }); 
+    
+    const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    });
+    
+    const page = await context.newPage();
+
+    try {
+        console.log(`Navigating to: ${url}`);
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+        console.log("Waiting for product title to render...");
+        await page.waitForSelector('h1', { timeout: 10000 });
+
+        // --- DATA EXTRACTION ---
+        let title = 'Title not found';
+
+        try {
+            console.log("Looking for full title in SEO meta tags...");
+            const metaTitle = await page.locator('meta[property="og:title"]').getAttribute('content', { timeout: 2000 });
+            
+            if (metaTitle) {
+                // Sometimes SEO titles have extra junk like " | Flipkart". We clean that up.
+                title = metaTitle.split('|')[0].trim(); 
+                console.log("Success! Grabbed full title from background data.");
+            }
+        } catch (e) {
+            console.log("Meta tag not found, falling back to UI...");
+        }
+
+        if (title === 'Title not found') {
+            const titleLocator = page.locator('h1').first();
+            let rawTitle = await titleLocator.innerText();
+            title = rawTitle ? rawTitle.trim() : 'Title not found';
+            title = title.replace(/\.\.\.more/gi, '').trim(); 
+            title = title.replace(/more$/i, '').trim();       
+        }
+
+        // 4. Price Extraction
+        const priceLocator = page.locator('div[class*="v1zwn21k v1zwn26 _1psv1zeb9 _1psv1ze0"]').first();
+        let price = await priceLocator.textContent();
+        
+        if (price) {
+            price = price.replace(/[^0-9.]/g, ''); 
+        } else {
+            price = 'Price not found';
+        }
+
+        return {
+            success: true,
+            platform: 'Flipkart',
+            title,
+            price
+        };
+
+    } catch (error) {
+        console.error("Flipkart Scraping failed:", error.message);
+        return {
+            success: false,
+            message: "Failed to scrape Flipkart product data.",
+            errorDetails: error.message
+        };
+    } finally {
+        await browser.close();
+    }
+};
