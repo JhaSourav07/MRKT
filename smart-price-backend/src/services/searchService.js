@@ -1,8 +1,7 @@
 import { chromium } from "playwright";
 
-//Searches Flipkart and returns the URL of the best match
+// Searches Flipkart for the given query and returns the URL of the top result
 export const searchFlipkart = async (searchQuery) => {
-  // Keep headless true so it's fast. We only need the URL!
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     userAgent:
@@ -11,8 +10,6 @@ export const searchFlipkart = async (searchQuery) => {
   const page = await context.newPage();
 
   try {
-    // We use JS to encode the search query (e.g., "iPhone 15" becomes "iPhone%2015")
-    // This is how Flipkart's search bar naturally formats URLs
     const searchUrl = `https://www.flipkart.com/search?q=${encodeURIComponent(searchQuery)}`;
 
     console.log(`Searching Flipkart for: "${searchQuery}"`);
@@ -21,14 +18,10 @@ export const searchFlipkart = async (searchQuery) => {
       timeout: 30000,
     });
 
-    // Wait for Flipkart's search results grid to load.
-    // Flipkart wraps almost every product card in a div with a 'data-id' attribute.
+    // Flipkart wraps each product card in a div with a data-id attribute
     await page.waitForSelector("div[data-id]", { timeout: 10000 });
 
-    // Grab the very first product card
     const firstResult = page.locator("div[data-id]").first();
-
-    // Find the main link inside that product card
     const linkLocator = firstResult.locator("a").first();
     const relativeUrl = await linkLocator.getAttribute("href");
 
@@ -39,7 +32,6 @@ export const searchFlipkart = async (searchQuery) => {
       };
     }
 
-    // Combine the relative URL with the base domain
     const fullUrl = `https://www.flipkart.com${relativeUrl}`;
     console.log(`Found Match! Link: ${fullUrl}`);
 
@@ -52,7 +44,7 @@ export const searchFlipkart = async (searchQuery) => {
   }
 };
 
-//Searches Amazon and returns the URL of the best match
+// Searches Amazon for the given query and returns the URL of the top result
 export const searchAmazon = async (searchQuery) => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -70,12 +62,10 @@ export const searchAmazon = async (searchQuery) => {
       timeout: 30000,
     });
 
-    // 1. Wait for the search results grid to appear
     await page.waitForSelector('div[data-component-type="s-search-result"]', {
       timeout: 10000,
     });
 
-    // 2. Grab ALL the results on the page
     const searchResults = page.locator(
       'div[data-component-type="s-search-result"]',
     );
@@ -84,9 +74,10 @@ export const searchAmazon = async (searchQuery) => {
 
     console.log(`Found ${count} search results. Hunting for a valid link...`);
 
+    // Check the first 4 results — some may be ads without standard product links
     for (let i = 0; i < Math.min(count, 4); i++) {
       try {
-        // CSS Comma means OR. Look for organic (/dp/) OR sponsored (/sspa/ or /slredirect/)
+        // Match organic (/dp/) and sponsored (/sspa/, /slredirect/) link patterns
         const linkLocator = searchResults
           .nth(i)
           .locator(
@@ -94,13 +85,12 @@ export const searchAmazon = async (searchQuery) => {
           )
           .first();
 
-        // Fast timeout so we don't get stuck waiting for a bad result
         const href = await linkLocator.getAttribute("href", { timeout: 2000 });
 
         if (href) {
           relativeUrl = href;
           console.log(`Success! Found product link in result #${i + 1}`);
-          break; // We found a link! Break out of the loop immediately.
+          break;
         }
       } catch (e) {
         console.log(
@@ -115,15 +105,15 @@ export const searchAmazon = async (searchQuery) => {
       );
     }
 
-    // Clean the URL of Amazon tracking tags
+    // Drop Amazon tracking tags from the URL
     const cleanRelativeUrl = relativeUrl.split("/ref=")[0];
 
-    // Sometimes sponsored links provide full URLs, organic links provide relative URLs. Handle both:
+    // Sponsored links sometimes return absolute URLs; organic ones are relative
     const fullUrl = cleanRelativeUrl.startsWith("http")
       ? cleanRelativeUrl
       : `https://www.amazon.in${cleanRelativeUrl}`;
 
-    console.log(`✅ Found Amazon Match! Link: ${fullUrl}`);
+    console.log(`Found Amazon match. Link: ${fullUrl}`);
     return { success: true, url: fullUrl };
   } catch (error) {
     console.error("Amazon Search failed:", error.message);

@@ -1,29 +1,26 @@
 export const extractProductInfo = (rawTitle) => {
-    // 1. Convert to lowercase for easier matching
     let title = rawTitle.toLowerCase();
 
-    // 2. Remove common "Junk" words that aren't part of the product identity
+    // Strip marketing noise that muddies the search query (e.g. "buy online", "price in india")
     const stopWords = ['price in india', 'buy online', 'at flipkart.com', 'at amazon.in', 'display', 'bluetooth calling', 'smartwatch'];
     stopWords.forEach(word => title = title.replace(word, ''));
 
-    // 3. Clean up specific specs that confuse our model extractor (like 46.5mm)
+    // Remove numeric specs like "46.5mm", "128GB", "5000mAh" — they confuse cross-platform searches
     title = title.replace(/\d+(\.\d+)?(mm|gb|mah|v|w|hz)/gi, '');
 
-    // 4. Clean special characters but KEEP hyphens (for brands like Fire-Boltt)
+    // Remove special characters but preserve hyphens (needed for brands like "Fire-Boltt")
     let cleanTitle = title.replace(/[^a-zA-Z0-9\- ]/g, ' ');
     cleanTitle = cleanTitle.replace(/\s+/g, ' ').trim();
 
     const words = cleanTitle.split(' ');
 
-    // 5. Smarter Brand Extraction
-    // If the first two words are "fire boltt", join them.
+    // Handle compound brand names — "fire boltt" should be treated as one token
     let brand = words[0];
     if (words[0] === 'fire' && words[1] === 'boltt') {
         brand = 'fire-boltt';
     }
 
-    // 6. Smarter Search Query
-    // Take the first 3-4 significant words, skipping the brand if it's already there
+    // Use the first 5 cleaned words as the cross-platform search query
     const searchQuery = words.slice(0, 5).join(' ');
 
     return {

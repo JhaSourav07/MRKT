@@ -1,11 +1,10 @@
 import { chromium } from "playwright";
 
 export const scrapeAmazonProduct = async (url) => {
-  // Launch browser.
-  // Change to { headless: false } if you ever need to visually debug a crash.
+  // Set headless: false if you need to visually debug a crash
   const browser = await chromium.launch({ headless: true });
 
-  // Use a realistic User-Agent to avoid basic bot detection
+  // Spoof a realistic browser identity to avoid bot detection
   const context = await browser.newContext({
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -15,35 +14,31 @@ export const scrapeAmazonProduct = async (url) => {
 
   try {
     console.log(`Navigating to: ${url}`);
-    // Wait until the basic DOM is loaded, max timeout of 30 seconds
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
 
-    // --- DEFENSIVE CODING: Handle Potential Pop-ups ---
+    // Amazon sometimes pops up a "Continue Shopping" modal — dismiss it if it appears
     const continueButton = page
       .getByRole("button", { name: /continue shopping/i })
       .first();
     try {
-      // Wait up to 2 seconds to see if the pop-up appears
       await continueButton.waitFor({ state: "visible", timeout: 2000 });
       console.log("Pop-up detected! Clicking it away...");
       await continueButton.click();
-      await page.waitForTimeout(1000); // Give the modal a second to disappear
+      await page.waitForTimeout(1000);
     } catch (e) {
       console.log("No pop-up detected. Moving on...");
     }
 
-    // --- DATA EXTRACTION ---
-    // 1. Title (Using .first() to prevent Playwright Strict Mode Violations)
+    // Using .first() here prevents Playwright strict-mode violations when multiple matches exist
     const titleLocator = page.locator("#productTitle").first();
     const rawTitle = await titleLocator.textContent();
     const title = rawTitle ? rawTitle.trim() : "Title not found";
 
-    // 2. Price
     const priceLocator = page.locator(".a-price-whole").first();
     let price = await priceLocator.textContent();
 
     if (price) {
-      // Clean up string: keep only numbers and decimals
+      // Strip currency symbols and commas — keep only digits and decimals
       price = price.replace(/[^0-9.]/g, "");
     } else {
       price = "Price not found";
@@ -63,7 +58,7 @@ export const scrapeAmazonProduct = async (url) => {
       errorDetails: error.message,
     };
   } finally {
-    // ALWAYS clean up memory, even if the scraper crashes
+    // Always close the browser, even if something above crashed
     await browser.close();
   }
 };
@@ -85,17 +80,17 @@ export const scrapeFlipkartProduct = async (url) => {
     console.log("Waiting for product title to render...");
     await page.waitForSelector("h1", { timeout: 10000 });
 
-    // --- DATA EXTRACTION ---
     let title = "Title not found";
 
     try {
+      // The og:title meta tag often has the full, untruncated product name
       console.log("Looking for full title in SEO meta tags...");
       const metaTitle = await page
         .locator('meta[property="og:title"]')
         .getAttribute("content", { timeout: 2000 });
 
       if (metaTitle) {
-        // Sometimes SEO titles have extra junk like " | Flipkart". We clean that up.
+        // SEO titles sometimes include " | Flipkart" — strip everything after the pipe
         title = metaTitle.split("|")[0].trim();
         console.log("Success! Grabbed full title from background data.");
       }
@@ -107,11 +102,11 @@ export const scrapeFlipkartProduct = async (url) => {
       const titleLocator = page.locator("h1").first();
       let rawTitle = await titleLocator.innerText();
       title = rawTitle ? rawTitle.trim() : "Title not found";
+      // Flipkart sometimes appends "...more" or just "more" to truncated titles
       title = title.replace(/\.\.\.more/gi, "").trim();
       title = title.replace(/more$/i, "").trim();
     }
 
-    // 4. Price Extraction
     const priceLocator = page
       .locator('div[class*="v1zwn21k v1zwn20 _1psv1zeb9 _1psv1ze0"]')
       .first();

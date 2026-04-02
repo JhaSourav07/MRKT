@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 export default function Home() {
+  // These three state variables drive the entire UI lifecycle of a comparison request
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
@@ -12,6 +13,7 @@ export default function Home() {
     e.preventDefault();
     if (!url) return;
 
+    // Reset previous results and errors before starting a new comparison
     setLoading(true);
     setError(null);
     setResults(null);
@@ -31,6 +33,7 @@ export default function Home() {
         setError(data.message || "Something went wrong during the comparison.");
       }
     } catch (err) {
+      // This usually means the backend server isn't running
       console.error("Fetch error:", err);
       setError("Could not connect to the backend. Make sure your Node server is running on port 5000!");
     } finally {
@@ -38,6 +41,8 @@ export default function Home() {
     }
   };
 
+  // Renders a single product card for either the source or competitor product.
+  // If the product data is missing or the scrape failed, we show a fallback error state.
   const ProductCard = ({ title, product }) => {
     if (!product || !product.success) {
       return (
@@ -48,6 +53,7 @@ export default function Home() {
       );
     }
 
+    // Color-code the platform badge so Amazon and Flipkart are visually distinct at a glance
     const isAmazon = product.platform === 'Amazon';
     const badgeBg = isAmazon ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-blue-50 text-blue-600 border-blue-200';
 
@@ -57,6 +63,7 @@ export default function Home() {
           <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${badgeBg}`}>
             {product.platform}
           </span>
+          {/* title attribute shows the full name on hover if the text gets clipped */}
           <h3 className="mt-4 text-gray-800 font-semibold text-lg leading-snug line-clamp-3" title={product.title}>
             {product.title}
           </h3>
@@ -68,6 +75,7 @@ export default function Home() {
               ₹{product.price}
             </span>
           </div>
+          {/* Only Amazon results carry the "Auto-Matched" label since Flipkart is the source */}
           {isAmazon && <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded-md">Auto-Matched</span>}
         </div>
       </div>
@@ -76,8 +84,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center py-24 px-4 font-sans selection:bg-blue-100 selection:text-blue-900">
-      
-      {/* Header */}
+
+      {/* Page heading and subtitle */}
       <div className="text-center max-w-2xl w-full mb-12">
         <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 tracking-tight">
           Smart Price <span className="text-blue-600">Engine</span>
@@ -87,9 +95,10 @@ export default function Home() {
         </p>
       </div>
 
-      {/* Search Form */}
+      {/* URL input form — accepts Amazon and Flipkart links */}
       <div className="w-full max-w-2xl relative z-10">
         <form onSubmit={handleSearch} className="relative flex flex-col sm:flex-row items-center bg-white p-2 rounded-2xl shadow-xl border border-gray-100">
+          {/* Decorative search icon — pointer-events disabled so it doesn't interfere with the input */}
           <div className="absolute left-6 hidden sm:flex items-center pointer-events-none">
             <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -113,7 +122,7 @@ export default function Home() {
         </form>
       </div>
 
-      {/* Error Message */}
+      {/* Error banner — only shown when something goes wrong with the request */}
       {error && (
         <div className="mt-8 bg-red-50 text-red-600 px-6 py-4 rounded-2xl max-w-2xl w-full border border-red-100 flex items-center gap-3 shadow-sm">
           <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
@@ -121,12 +130,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* Results Section */}
+      {/* Comparison results — animated in from the bottom once both products are ready */}
       {results && (
          <div className="mt-16 w-full max-w-5xl flex flex-col md:flex-row gap-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
             <ProductCard title="Source Product" product={results.sourceProduct} />
-            
-            {/* Minimal VS Divider */}
+
+            {/* VS divider — only visible on wider screens where cards sit side by side */}
             <div className="hidden md:flex flex-col items-center justify-center opacity-40">
                <div className="h-full w-px bg-gray-300 absolute"></div>
                <div className="bg-gray-100 text-gray-500 rounded-full w-12 h-12 flex items-center justify-center font-bold text-sm relative z-10 border-4 border-[#f8fafc]">
