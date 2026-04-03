@@ -7,6 +7,14 @@ const productSchema = new mongoose.Schema({
   platform: { type: String, required: true, enum: ["Amazon", "Flipkart"] },
   searchQuery: { type: String },
   lastScraped: { type: Date, default: Date.now },
+
+  priceHistory: [
+    {
+      price: { type: Number, required: true },
+      date: { type: Date, default: Date.now },
+    },
+  ],
+
   competitor: {
     url: { type: String },
     title: { type: String },

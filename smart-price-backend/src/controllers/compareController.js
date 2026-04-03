@@ -48,14 +48,21 @@ export const processComparison = async (req, res) => {
                     // Persist the result so we don't have to scrape this URL again tomorrow
                     await Product.findOneAndUpdate(
                         { originalUrl: query },
-                        {
-                            title: originalData.title,
-                            price: originalData.price,
-                            platform: 'Amazon',
-                            searchQuery: originalData.extractedInfo.searchQuery,
-                            lastScraped: Date.now()
+                        { 
+                            // $set overwrites the current live data
+                            $set: {
+                                title: originalData.title,
+                                price: originalData.price,
+                                platform: 'Amazon',
+                                searchQuery: originalData.extractedInfo.searchQuery,
+                                lastScraped: Date.now()
+                            },
+                            // $push adds a new entry to the end of our history array!
+                            $push: {
+                                priceHistory: { price: originalData.price, date: Date.now() }
+                            }
                         },
-                        { upsert: true, new: true }
+                        { upsert: true, new: true } 
                     );
                 }
             } 
@@ -65,14 +72,20 @@ export const processComparison = async (req, res) => {
                 if (originalData.success) {
                     originalData.extractedInfo = extractProductInfo(originalData.title);
                     
+                    // Persist the result so we don't have to scrape this URL again tomorrow
                     await Product.findOneAndUpdate(
                         { originalUrl: query },
                         {
-                            title: originalData.title,
-                            price: originalData.price,
-                            platform: 'Flipkart',
-                            searchQuery: originalData.extractedInfo.searchQuery,
-                            lastScraped: Date.now()
+                            $set: {
+                                title: originalData.title,
+                                price: originalData.price,
+                                platform: 'Flipkart',
+                                searchQuery: originalData.extractedInfo.searchQuery,
+                                lastScraped: Date.now()
+                            },
+                            $push: {
+                                priceHistory: { price: originalData.price, date: Date.now() }
+                            }
                         },
                         { upsert: true, new: true }
                     );
