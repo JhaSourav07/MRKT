@@ -1,10 +1,8 @@
 import { chromium } from "playwright";
 
 export const scrapeAmazonProduct = async (url) => {
-  // Set headless: false if you need to visually debug a crash
   const browser = await chromium.launch({ headless: true });
 
-  // Spoof a realistic browser identity to avoid bot detection
   const context = await browser.newContext({
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -44,11 +42,27 @@ export const scrapeAmazonProduct = async (url) => {
       price = "Price not found";
     }
 
+    // Grab the main product image — #landingImage is the most reliable selector
+    let image = null;
+    try {
+      image = await page.locator("#landingImage").first().getAttribute("src");
+      if (!image) {
+        // Fallback: try the og:image meta tag
+        image = await page
+          .locator('meta[property="og:image"]')
+          .getAttribute("content", { timeout: 2000 });
+      }
+    } catch (e) {
+      console.log("Could not scrape Amazon image:", e.message);
+    }
+
     return {
       success: true,
       platform: "Amazon",
       title,
       price,
+      image: image || null,
+      url,
     };
   } catch (error) {
     console.error("Scraping failed:", error.message);
@@ -118,11 +132,31 @@ export const scrapeFlipkartProduct = async (url) => {
       price = "Price not found";
     }
 
+    // og:image is the most reliable and hotlink-friendly image source on Flipkart
+    let image = null;
+    try {
+      image = await page
+        .locator('meta[property="og:image"]')
+        .getAttribute("content", { timeout: 2000 });
+
+      if (!image) {
+        // Fallback: grab the first visible product image on the page
+        image = await page
+          .locator('img[class*="DByuf4"], img._2r_T1I, img._396cs4')
+          .first()
+          .getAttribute("src", { timeout: 2000 });
+      }
+    } catch (e) {
+      console.log("Could not scrape Flipkart image:", e.message);
+    }
+
     return {
       success: true,
       platform: "Flipkart",
       title,
       price,
+      image: image || null,
+      url,
     };
   } catch (error) {
     console.error("Flipkart Scraping failed:", error.message);

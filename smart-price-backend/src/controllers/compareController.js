@@ -30,6 +30,8 @@ export const processComparison = async (req, res) => {
         platform: cachedProduct.platform,
         title: cachedProduct.title,
         price: cachedProduct.price,
+        image: cachedProduct.image || null,
+        url: query,
         extractedInfo: { searchQuery: cachedProduct.searchQuery },
       };
 
@@ -41,6 +43,7 @@ export const processComparison = async (req, res) => {
           platform: cachedProduct.competitor.platform,
           title: cachedProduct.competitor.title,
           price: cachedProduct.competitor.price,
+          image: cachedProduct.competitor.image || null,
           url: cachedProduct.competitor.url,
         };
       }
@@ -57,15 +60,14 @@ export const processComparison = async (req, res) => {
           await Product.findOneAndUpdate(
             { originalUrl: query },
             {
-              // $set overwrites the current live data
               $set: {
                 title: originalData.title,
                 price: originalData.price,
                 platform: "Amazon",
+                image: originalData.image,
                 searchQuery: originalData.extractedInfo.searchQuery,
                 lastScraped: Date.now(),
               },
-              // $push adds a new entry to the end of our history array!
               $push: {
                 priceHistory: { price: originalData.price, date: Date.now() },
               },
@@ -84,7 +86,6 @@ export const processComparison = async (req, res) => {
         if (originalData.success) {
           originalData.extractedInfo = extractProductInfo(originalData.title);
 
-          // Persist the result so we don't have to scrape this URL again tomorrow
           await Product.findOneAndUpdate(
             { originalUrl: query },
             {
@@ -92,6 +93,7 @@ export const processComparison = async (req, res) => {
                 title: originalData.title,
                 price: originalData.price,
                 platform: "Flipkart",
+                image: originalData.image,
                 searchQuery: originalData.extractedInfo.searchQuery,
                 lastScraped: Date.now(),
               },
@@ -141,6 +143,7 @@ export const processComparison = async (req, res) => {
               title: comparisonData.title,
               price: comparisonData.price,
               platform: comparisonData.platform,
+              image: comparisonData.image,
             },
           },
         );

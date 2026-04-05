@@ -1,19 +1,58 @@
 'use client';
 
 import { useState } from 'react';
+import Hero from './components/Hero';
+import Features from './components/Features';
+import SkeletonCard from './components/SkeletonCard';
+import ProductCard from './components/ProductCard';
+
+// The VS divider between side-by-side result cards
+const VsDivider = () => (
+  <div className="hidden md:flex flex-col items-center justify-center relative px-2 select-none" aria-hidden="true">
+    <div className="absolute h-full w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+    <div
+      className="
+        relative z-10 w-11 h-11 rounded-full
+        glass-card border border-white/10
+        flex items-center justify-center
+        text-zinc-500 font-black text-xs tracking-widest
+      "
+    >
+      VS
+    </div>
+  </div>
+);
+
+// Inline error banner displayed below the search bar
+const ErrorBanner = ({ message }) => (
+  <div
+    role="alert"
+    className="
+      mt-6 w-full max-w-2xl mx-auto
+      flex items-start gap-3 px-5 py-4 rounded-2xl
+      bg-red-500/10 border border-red-500/20 text-red-400
+      text-sm animate-fade-in-up
+    "
+  >
+    <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <p>{message}</p>
+  </div>
+);
 
 export default function Home() {
-  // These three state variables drive the entire UI lifecycle of a comparison request
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null);
+  const [results, setResults] = useState(null);  // holds { sourceProduct, competitorProduct }
   const [error, setError] = useState(null);
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!url) return;
+    if (!url.trim()) return;
 
-    // Reset previous results and errors before starting a new comparison
+    // Reset to a clean slate before each new comparison
     setLoading(true);
     setError(null);
     setResults(null);
@@ -30,122 +69,159 @@ export default function Home() {
       if (data.success) {
         setResults(data.data);
       } else {
-        setError(data.message || "Something went wrong during the comparison.");
+        setError(data.message || 'The comparison failed. Please try a different URL.');
       }
     } catch (err) {
-      // This usually means the backend server isn't running
-      console.error("Fetch error:", err);
-      setError("Could not connect to the backend. Make sure your Node server is running on port 5000!");
+      console.error('Fetch error:', err);
+      setError("Can't reach the backend — make sure your Node server is running on port 5000.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Renders a single product card for either the source or competitor product.
-  // If the product data is missing or the scrape failed, we show a fallback error state.
-  const ProductCard = ({ title, product }) => {
-    if (!product || !product.success) {
-      return (
-        <div className="flex-1 bg-white p-8 rounded-3xl border border-gray-100 flex flex-col items-center justify-center text-center shadow-sm">
-          <h3 className="text-gray-400 font-medium mb-2">{title}</h3>
-          <p className="text-red-500 text-sm">{product?.message || "Product not found"}</p>
-        </div>
-      );
-    }
-
-    // Color-code the platform badge so Amazon and Flipkart are visually distinct at a glance
-    const isAmazon = product.platform === 'Amazon';
-    const badgeBg = isAmazon ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-blue-50 text-blue-600 border-blue-200';
-
-    return (
-      <div className="flex-1 bg-white p-8 rounded-3xl border border-gray-100 flex flex-col justify-between shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <div>
-          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${badgeBg}`}>
-            {product.platform}
-          </span>
-          {/* title attribute shows the full name on hover if the text gets clipped */}
-          <h3 className="mt-4 text-gray-800 font-semibold text-lg leading-snug line-clamp-3" title={product.title}>
-            {product.title}
-          </h3>
-        </div>
-        <div className="mt-8 pt-6 border-t border-gray-50 flex items-end justify-between">
-          <div>
-            <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-1">Current Price</p>
-            <span className="text-4xl font-extrabold text-gray-900 tracking-tight">
-              ₹{product.price}
-            </span>
-          </div>
-          {/* Only Amazon results carry the "Auto-Matched" label since Flipkart is the source */}
-          {isAmazon && <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded-md">Auto-Matched</span>}
-        </div>
-      </div>
-    );
-  };
+  // Derive the current UI state from the three state variables
+  const showFeatures = !loading && !results;
+  const showSkeletons = loading;
+  const showResults = !loading && results;
 
   return (
-    <main className="min-h-screen flex flex-col items-center py-24 px-4 font-sans selection:bg-blue-100 selection:text-blue-900">
+    <div className="relative min-h-screen bg-[#030303] text-white overflow-hidden">
 
-      {/* Page heading and subtitle */}
-      <div className="text-center max-w-2xl w-full mb-12">
-        <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 tracking-tight">
-          Smart Price <span className="text-blue-600">Engine</span>
-        </h1>
-        <p className="text-xl text-gray-500 font-light">
-          Drop a product link below to instantly verify you're getting the best deal.
-        </p>
+      {/* ── Ambient background mesh orbs ────────────────────────────── */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
+        {/* Indigo orb — top-left */}
+        <div
+          className="animate-float absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full
+            bg-indigo-600/30 blur-[150px] opacity-60"
+          style={{ animationDuration: '7s' }}
+        />
+        {/* Fuchsia orb — top-right */}
+        <div
+          className="animate-float-alt absolute -top-16 -right-24 w-[500px] h-[500px] rounded-full
+            bg-fuchsia-600/25 blur-[150px] opacity-50"
+        />
+        {/* Violet orb — bottom-center */}
+        <div
+          className="animate-float-tertiary absolute -bottom-40 left-1/2 -translate-x-1/2
+            w-[700px] h-[400px] rounded-full bg-violet-700/20 blur-[150px] opacity-40"
+        />
       </div>
 
-      {/* URL input form — accepts Amazon and Flipkart links */}
-      <div className="w-full max-w-2xl relative z-10">
-        <form onSubmit={handleSearch} className="relative flex flex-col sm:flex-row items-center bg-white p-2 rounded-2xl shadow-xl border border-gray-100">
-          {/* Decorative search icon — pointer-events disabled so it doesn't interfere with the input */}
-          <div className="absolute left-6 hidden sm:flex items-center pointer-events-none">
-            <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-          </div>
-          <input
-            type="url"
-            placeholder="Paste Amazon or Flipkart link here..."
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            required
-            className="w-full sm:pl-16 pr-4 py-4 text-gray-800 bg-transparent focus:outline-none placeholder-gray-400 text-lg rounded-xl"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full sm:w-auto mt-2 sm:mt-0 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl disabled:bg-blue-300 transition-all shadow-md flex items-center justify-center whitespace-nowrap"
+      {/* ── Page content ────────────────────────────────────────────── */}
+      <div className="relative z-10 flex flex-col items-center">
+
+        {/* Hero is always visible, regardless of state */}
+        <Hero
+          url={url}
+          onUrlChange={setUrl}
+          onSubmit={handleSearch}
+          loading={loading}
+        />
+
+        {/* Error banner */}
+        {error && <ErrorBanner message={error} />}
+
+        {/* ── State 1: Default — show the Features bento grid ── */}
+        {showFeatures && <Features />}
+
+        {/* ── State 2: Loading — show two SkeletonCards side-by-side ── */}
+        {showSkeletons && (
+          <section
+            id="skeleton-section"
+            className="w-full max-w-5xl px-4 pb-24 mt-10"
+            aria-label="Loading price comparison"
           >
-            {loading ? 'Scanning Stores...' : 'Compare Prices'}
-          </button>
-        </form>
-      </div>
+            <p className="text-center text-zinc-600 text-sm mb-8 tracking-wide animate-pulse">
+              Scraping live prices across platforms…
+            </p>
+            <div className="flex flex-col md:flex-row gap-5">
+              <SkeletonCard label="Loading source product" />
+              <VsDivider />
+              <SkeletonCard label="Loading competitor product" />
+            </div>
+          </section>
+        )}
 
-      {/* Error banner — only shown when something goes wrong with the request */}
-      {error && (
-        <div className="mt-8 bg-red-50 text-red-600 px-6 py-4 rounded-2xl max-w-2xl w-full border border-red-100 flex items-center gap-3 shadow-sm">
-          <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-          <p className="font-medium">{error}</p>
-        </div>
-      )}
-
-      {/* Comparison results — animated in from the bottom once both products are ready */}
-      {results && (
-         <div className="mt-16 w-full max-w-5xl flex flex-col md:flex-row gap-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
-            <ProductCard title="Source Product" product={results.sourceProduct} />
-
-            {/* VS divider — only visible on wider screens where cards sit side by side */}
-            <div className="hidden md:flex flex-col items-center justify-center opacity-40">
-               <div className="h-full w-px bg-gray-300 absolute"></div>
-               <div className="bg-gray-100 text-gray-500 rounded-full w-12 h-12 flex items-center justify-center font-bold text-sm relative z-10 border-4 border-[#f8fafc]">
-                 VS
-               </div>
+        {/* ── State 3: Results — show two ProductCards side-by-side ── */}
+        {showResults && (
+          <section
+            id="results-section"
+            className="w-full max-w-5xl px-4 pb-24 mt-10"
+            aria-label="Price comparison results"
+          >
+            {/* Results header */}
+            <div className="text-center mb-8">
+              <p className="text-zinc-500 text-sm font-semibold tracking-widest uppercase mb-1">
+                Comparison Complete
+              </p>
+              <h2 className="text-white text-xl font-bold tracking-tight">
+                Here&apos;s what we found
+              </h2>
             </div>
 
-            <ProductCard title="Competitor Product" product={results.competitorProduct} />
-         </div>
-      )}
-    </main>
+            <div className="flex flex-col md:flex-row gap-5">
+              <ProductCard
+                cardTitle="Source Product"
+                product={results.sourceProduct}
+                animationClass="animate-fade-in-up"
+              />
+              <VsDivider />
+              <ProductCard
+                cardTitle="Competitor Product"
+                product={results.competitorProduct}
+                animationClass="animate-fade-in-up-delay"
+              />
+            </div>
+
+            {/* Savings summary when both products have prices */}
+            {results.sourceProduct?.success && results.competitorProduct?.success &&
+              results.sourceProduct?.price != null && results.competitorProduct?.price != null && (
+              <SavingsSummary
+                sourcePrice={Number(results.sourceProduct.price)}
+                competitorPrice={Number(results.competitorProduct.price)}
+                sourcePlatform={results.sourceProduct.platform}
+                competitorPlatform={results.competitorProduct.platform}
+              />
+            )}
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Derived savings banner — shown beneath the result cards when both prices exist
+function SavingsSummary({ sourcePrice, competitorPrice, sourcePlatform, competitorPlatform }) {
+  const diff = sourcePrice - competitorPrice;
+  const cheaper = diff > 0 ? competitorPlatform : sourcePlatform;
+  const savingsAmt = Math.abs(diff).toLocaleString('en-IN');
+  const savingsPct = ((Math.abs(diff) / Math.max(sourcePrice, competitorPrice)) * 100).toFixed(1);
+
+  if (diff === 0) {
+    return (
+      <div className="mt-6 glass-card rounded-2xl px-6 py-4 text-center animate-fade-in-up-delay">
+        <p className="text-zinc-400 text-sm">Both platforms have the <span className="text-white font-semibold">same price</span>.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 glass-card rounded-2xl px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in-up-delay">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+          <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-zinc-500 text-xs uppercase tracking-widest font-semibold">Best Deal</p>
+          <p className="text-white font-bold text-sm">{cheaper} is cheaper</p>
+        </div>
+      </div>
+      <div className="text-center sm:text-right">
+        <p className="text-emerald-400 text-2xl font-black tracking-tighter">Save ₹{savingsAmt}</p>
+        <p className="text-zinc-600 text-xs mt-0.5">{savingsPct}% less than the other platform</p>
+      </div>
+    </div>
   );
 }

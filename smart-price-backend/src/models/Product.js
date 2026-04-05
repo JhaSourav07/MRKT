@@ -5,6 +5,7 @@ const productSchema = new mongoose.Schema({
   title: { type: String, required: true },
   price: { type: Number, required: true },
   platform: { type: String, required: true, enum: ["Amazon", "Flipkart"] },
+  image: { type: String },
   searchQuery: { type: String },
   lastScraped: { type: Date, default: Date.now },
 
@@ -20,6 +21,7 @@ const productSchema = new mongoose.Schema({
     title: { type: String },
     price: { type: Number },
     platform: { type: String },
+    image: { type: String },
   },
 });
 
